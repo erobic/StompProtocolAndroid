@@ -113,9 +113,8 @@ public class WebSocketsConnectionProvider implements ConnectionProvider {
 
         if(mUri.startsWith("wss")) {
             try {
-                SSLContext sc = SSLContext.getInstance("TLS");
-                sc.init(null, null, null);
-                mWebSocketClient.setWebSocketFactory(new DefaultSSLWebSocketClientFactory(sc));
+                SSLContext sslContext = SSLContext.getDefault();
+                mWebSocketClient.setWebSocketFactory(new DefaultSSLWebSocketClientFactory(sslContext));
             } catch (Exception e) {
                 e.printStackTrace();
             }
