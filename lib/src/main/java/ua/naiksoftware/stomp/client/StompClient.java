@@ -152,45 +152,60 @@ public class StompClient {
     }
 
     public Observable<StompMessage> topic(String destinationPath, List<StompHeader> headerList) {
-       return Observable.<StompMessage>create(subscriber -> {
-           Set<Subscriber<? super StompMessage>> subscribersSet = mSubscribers.get(destinationPath);
-           if (subscribersSet == null) {
-               subscribersSet = new HashSet<>();
-               mSubscribers.put(destinationPath, subscribersSet);
-               subscribePath(destinationPath, headerList);
-           }
-           subscribersSet.add(subscriber);
+        return Observable.<StompMessage>create(subscriber -> {
+            Set<Subscriber<? super StompMessage>> subscribersSet = mSubscribers.get(destinationPath);
+            if (subscribersSet == null) {
+                subscribersSet = new HashSet<>();
+                mSubscribers.put(destinationPath, subscribersSet);
+                subscribePath(destinationPath, headerList);
+            }
+            subscribersSet.add(subscriber);
 
-       }).doOnUnsubscribe(() -> {
-           for (String dest : mSubscribers.keySet()) {
-               Set<Subscriber<? super StompMessage>> set = mSubscribers.get(dest);
-               for (Subscriber<? super StompMessage> subscriber : set) {
-                   if (subscriber.isUnsubscribed()) {
-                       set.remove(subscriber);
-                       if (set.size() < 1) {
-                           mSubscribers.remove(dest);
-                           unsubscribePath(dest);
-                       }
-                   }
-               }
-           }
-       });
-   }
+        }).doOnUnsubscribe(() -> {
+            for (String dest : mSubscribers.keySet()) {
+                Set<Subscriber<? super StompMessage>> set = mSubscribers.get(dest);
+                for (Subscriber<? super StompMessage> subscriber : set) {
+                    if (subscriber.isUnsubscribed()) {
+                        set.remove(subscriber);
+                        if (set.size() < 1) {
+                            mSubscribers.remove(dest);
+                            unsubscribePath(dest);
+                        }
+                    }
+                }
+            }
+        });
+    }
 
     private void subscribePath(String destinationPath, List<StompHeader> headerList) {
-          if (destinationPath == null) return;
-          String topicId = UUID.randomUUID().toString();
+        if (destinationPath == null) return;
+        String topicId = UUID.randomUUID().toString();
 
-          if (mTopics == null) mTopics = new HashMap<>();
-          mTopics.put(destinationPath, topicId);
-          List<StompHeader> headers = new ArrayList<>();
-          headers.add(new StompHeader(StompHeader.ID, topicId));
-          headers.add(new StompHeader(StompHeader.DESTINATION, destinationPath));
-          headers.add(new StompHeader(StompHeader.ACK, DEFAULT_ACK));
-          if (headerList != null) headers.addAll(headerList);
-          send(new StompMessage(StompCommand.SUBSCRIBE,
-                  headers, null));
-      }
+        if (mTopics == null) mTopics = new HashMap<>();
+        mTopics.put(destinationPath, topicId);
+        List<StompHeader> headers = new ArrayList<>();
+        headers.add(new StompHeader(StompHeader.ID, topicId));
+        headers.add(new StompHeader(StompHeader.DESTINATION, destinationPath));
+        headers.add(new StompHeader(StompHeader.ACK, DEFAULT_ACK));
+        if (headerList != null) headers.addAll(headerList);
+        send(new StompMessage(StompCommand.SUBSCRIBE,
+                headers, null)).subscribe(new Subscriber<Void>() {
+            @Override
+            public void onCompleted() {
+
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                Log.e(TAG, "Could not subscribe to "+destinationPath, e);
+            }
+
+            @Override
+            public void onNext(Void aVoid) {
+                Log.d(TAG, "Subscribed to " + destinationPath);
+            }
+        });
+    }
 
 
     private void unsubscribePath(String dest) {
@@ -198,7 +213,23 @@ public class StompClient {
         Log.d(TAG, "Unsubscribe path: " + dest + " id: " + topicId);
 
         send(new StompMessage(StompCommand.UNSUBSCRIBE,
-                Collections.singletonList(new StompHeader(StompHeader.ID, topicId)), null));
+                Collections.singletonList(new StompHeader(StompHeader.ID, topicId)), null))
+                .subscribe(new Subscriber<Void>() {
+                    @Override
+                    public void onCompleted() {
+
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        Log.e(TAG, "Could not unsubscribe from "+dest, e);
+                    }
+
+                    @Override
+                    public void onNext(Void aVoid) {
+                        Log.d(TAG, "Unsubscribed from " + dest);
+                    }
+                });
     }
 
     public boolean isConnected() {
